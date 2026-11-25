@@ -1,0 +1,354 @@
+<title>Débit Perf</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout : un cadran rond (l'écran de la montre) en haut, les réglages en dessous. Look unique sombre, pensé pour un écran OLED. */
+:root{
+  --bg:#0a0f13;
+  --panel:#121a20;
+  --line:#22303a;
+  --fg:#e6eef2;
+  --muted:#8ba0ab;
+  --fluid:#8fdcec;
+  --fluid-deep:#3b8fa3;
+  --ok:#6fd49a;
+  --warn:#f0b35a;
+  --bad:#f07a6a;
+  --f-num:"Chakra Petch","Roboto Mono",ui-monospace,monospace;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:20px 40px}
+.wrap{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--f-num);font-weight:600;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--muted);text-align:center}
+
+/* ---- Cadran ---- */
+.watch{position:relative;width:min(100%,340px);aspect-ratio:1;max-width:100%;margin:0 auto;border-radius:50%;
+  background:radial-gradient(circle at 50% 38%,#16222a 0%,#0b1116 70%);
+  box-shadow:0 0 0 6px #1a242b,0 0 0 7px #2b3943,0 18px 40px rgba(0,0,0,.55)}
+.watch svg.ring{position:absolute;inset:0;width:100%;height:100%}
+.ring-track{fill:none;stroke:var(--line);stroke-width:3}
+.ring-prog{fill:none;stroke:var(--fluid);stroke-width:3;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;opacity:.9}
+.face{position:absolute;inset:9%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center}
+.chamber{width:46%;height:auto;margin-top:2%}
+.readout{margin-top:-2%;display:flex;flex-direction:column;align-items:center;gap:0}
+.big{font-family:var(--f-num);font-weight:700;font-size:clamp(2.6rem,13vw,3.5rem);line-height:1;font-variant-numeric:tabular-nums;background:none;border:0;color:var(--fg);padding:0 6px;cursor:pointer;border-radius:8px}
+.big:focus-visible{outline:2px solid var(--fluid)}
+.unit{font-family:var(--f-num);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--fluid)}
+.sub{font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px}
+.flash{animation:flash .35s ease-out}
+@keyframes flash{from{stroke:#fff;stroke-width:5}to{stroke:var(--line);stroke-width:3}}
+
+/* ---- Cartes de réglage ---- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.label{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{font:inherit;font-size:.88rem;font-weight:500;background:none;border:0;color:var(--muted);padding:8px 4px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--line);color:var(--fg)}
+.seg button:focus-visible,.chip:focus-visible,.tap:focus-visible{outline:2px solid var(--fluid);outline-offset:2px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field span{font-size:.78rem;color:var(--muted)}
+input[type=number]{font-family:var(--f-num);font-size:1.25rem;font-weight:600;width:100%;box-sizing:border-box;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-variant-numeric:tabular-nums}
+input[type=number]:focus{outline:2px solid var(--fluid);outline-offset:0;border-color:transparent}
+[hidden]{display:none!important}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips.g4{display:grid;grid-template-columns:repeat(4,1fr)}
+.chips.g3{display:grid;grid-template-columns:repeat(3,1fr)}
+#factors{display:grid;grid-template-columns:1fr 1fr}
+.chip{font:inherit;font-size:.82rem;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{border-color:var(--fluid);color:var(--fluid)}
+.chip small{color:var(--muted);margin-left:4px}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.res{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.res b{font-family:var(--f-num);font-size:1.2rem;font-weight:600;font-variant-numeric:tabular-nums}
+.res span{font-size:.75rem;color:var(--muted)}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+
+/* ---- Mesure au tap ---- */
+.tap{font-family:var(--f-num);font-weight:600;font-size:1.05rem;letter-spacing:.05em;width:100%;padding:18px;border-radius:12px;border:1px dashed var(--fluid-deep);background:#0e1a20;color:var(--fluid);cursor:pointer;touch-action:manipulation}
+.tap:active{background:#13252d}
+.verdict{display:flex;align-items:center;gap:10px;font-size:.92rem;min-height:1.6em}
+.pill{font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}.pill.idle{color:var(--muted)}
+.link{font:inherit;font-size:.8rem;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;align-self:flex-start;padding:0}
+.note{font-size:.78rem;color:var(--muted);text-align:center;max-width:40ch;margin:0 auto}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+</style>
+
+<div class="wrap">
+  <h1>Débit perf</h1>
+
+  <div class="watch" aria-label="Indicateur de débit">
+    <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="ring-track" id="ringTrack" cx="50" cy="50" r="47.5"/>
+      <circle class="ring-prog" id="ringProg" cx="50" cy="50" r="47.5" pathLength="100" stroke-dasharray="0 100"/>
+    </svg>
+    <div class="face">
+      <svg class="chamber" viewBox="0 0 100 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="glass" x1="0" x2="1">
+            <stop offset="0" stop-color="#ffffff" stop-opacity=".10"/>
+            <stop offset=".5" stop-color="#ffffff" stop-opacity=".02"/>
+            <stop offset="1" stop-color="#ffffff" stop-opacity=".08"/>
+          </linearGradient>
+          <clipPath id="inside"><rect x="31" y="14" width="38" height="88" rx="9"/></clipPath>
+        </defs>
+        <rect x="45" y="0" width="10" height="16" rx="2" fill="#2b3943"/>
+        <rect x="30" y="13" width="40" height="90" rx="10" fill="url(#glass)" stroke="#4a5d69" stroke-width="1.5"/>
+        <g clip-path="url(#inside)">
+          <path id="surface" d="M30 82 Q40 80 50 82 T70 82 V104 H30 Z" fill="var(--fluid-deep)" opacity=".85"/>
+          <ellipse id="ripple" cx="50" cy="82" rx="0" ry="0" fill="none" stroke="var(--fluid)" stroke-width="1"/>
+          <ellipse id="drop" cx="50" cy="22" rx="0" ry="0" fill="var(--fluid)"/>
+        </g>
+        <rect x="47" y="13" width="6" height="7" fill="#4a5d69"/>
+        <rect x="46" y="103" width="8" height="17" rx="2" fill="#2b3943"/>
+      </svg>
+      <div class="readout">
+        <button class="big" id="bigNum" title="Changer d'unité">--</button>
+        <div class="unit" id="bigUnit">gouttes / min</div>
+        <div class="sub" id="bigSub">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Afficher en</div>
+    <div class="seg" role="group" aria-label="Unité affichée">
+      <button id="uGtt" aria-pressed="true">gouttes/min</button>
+      <button id="uMlh" aria-pressed="false">ml/h</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Je connais</div>
+    <div class="seg" role="group" aria-label="Mode de calcul">
+      <button id="mVol" aria-pressed="true">Volume + durée</button>
+      <button id="mRate" aria-pressed="false">Débit en ml/h</button>
+    </div>
+
+    <div class="row">
+      <label class="field"><span>Volume (ml)</span><input id="vol" type="number" inputmode="decimal" min="0" step="any" value="500"></label>
+      <label class="field" data-mode="vol"><span>Heures</span><input id="hrs" type="number" inputmode="numeric" min="0" step="1" value="4"></label>
+      <label class="field" data-mode="vol"><span>Minutes</span><input id="mins" type="number" inputmode="numeric" min="0" max="59" step="1" value="0"></label>
+      <label class="field" data-mode="rate" hidden><span>Débit (ml/h)</span><input id="rate" type="number" inputmode="decimal" min="0" step="any" value="125"></label>
+    </div>
+    <div class="chips g4" aria-label="Volumes courants">
+      <button class="chip" data-vol="100">100 ml</button>
+      <button class="chip" data-vol="250">250 ml</button>
+      <button class="chip" data-vol="500">500 ml</button>
+      <button class="chip" data-vol="1000">1 000 ml</button>
+    </div>
+    <div class="chips g3" data-mode="vol" aria-label="Durées courantes">
+      <button class="chip" data-dur="30">30 min</button>
+      <button class="chip" data-dur="60">1 h</button>
+      <button class="chip" data-dur="240">4 h</button>
+      <button class="chip" data-dur="480">8 h</button>
+      <button class="chip" data-dur="720">12 h</button>
+      <button class="chip" data-dur="1440">24 h</button>
+    </div>
+
+    <div class="label">Perfuseur (gouttes par ml)</div>
+    <div class="chips" id="factors" role="group" aria-label="Facteur de goutte">
+      <button class="chip" data-f="20" aria-pressed="true">20<small>standard</small></button>
+      <button class="chip" data-f="60" aria-pressed="false">60<small>micro-goutte</small></button>
+      <button class="chip" data-f="15" aria-pressed="false">15<small>transfusion</small></button>
+      <button class="chip" data-f="10" aria-pressed="false">10<small>autre</small></button>
+    </div>
+
+    <div class="results">
+      <div class="res"><b id="rGtt">--</b><span>gouttes / min</span></div>
+      <div class="res"><b id="rMlh">--</b><span>ml / h</span></div>
+      <div class="res"><b id="r15">--</b><span>gouttes en 15 s</span></div>
+      <div class="res"><b id="rEnd">--</b><span id="rEndLbl">fin prévue</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Repère pendant le réglage</div>
+    <div class="toggles">
+      <button class="chip" id="tSound" aria-pressed="false">Bip à chaque goutte</button>
+      <button class="chip" id="tVib" aria-pressed="false">Vibration</button>
+    </div>
+    <div class="label">Vérifier le débit réel</div>
+    <button class="tap" id="tap">Touchez à chaque goutte qui tombe</button>
+    <div class="verdict" id="verdict"><span class="pill idle">En attente</span><span>3 touches suffisent.</span></div>
+    <button class="link" id="tapReset">Recommencer la mesure</button>
+  </div>
+
+  <p class="note">Aide au calcul. Vérifiez la prescription et le nombre de gouttes par ml inscrit sur l'emballage du perfuseur.</p>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const S={unit:'gtt',mode:'vol',f:20,sound:false,vib:false};
+  const fmt=(n,d=0)=>Number.isFinite(n)?n.toLocaleString('fr-FR',{maximumFractionDigits:d,minimumFractionDigits:0}):'--';
+  const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+  // Restaure les derniers réglages
+  const saved=store.get('debitPerf');
+  if(saved){Object.assign(S,saved.S||{});['vol','hrs','mins','rate'].forEach(k=>{if(saved[k]!=null)$(k).value=saved[k]});}
+  const save=()=>store.set('debitPerf',{S:{unit:S.unit,mode:S.mode,f:S.f,sound:S.sound,vib:S.vib},vol:$('vol').value,hrs:$('hrs').value,mins:$('mins').value,rate:$('rate').value});
+
+  // ---- Calcul ----
+  let R={gtt:NaN,mlh:NaN,durMin:NaN};
+  function compute(){
+    const v=parseFloat($('vol').value);
+    let mlh,durMin;
+    if(S.mode==='vol'){
+      durMin=(parseFloat($('hrs').value)||0)*60+(parseFloat($('mins').value)||0);
+      mlh=(v>0&&durMin>0)?v/(durMin/60):NaN;
+    }else{
+      mlh=parseFloat($('rate').value);
+      if(!(mlh>0))mlh=NaN;
+      durMin=(v>0&&mlh>0)?v/mlh*60:NaN;
+    }
+    const gtt=mlh*S.f/60;
+    R={gtt,mlh,durMin};
+    render();setPeriod(gtt);save();
+  }
+  function render(){
+    const {gtt,mlh,durMin}=R;
+    $('rGtt').textContent=fmt(gtt,gtt<10?1:0);
+    $('rMlh').textContent=fmt(mlh,mlh<10?1:0);
+    $('r15').textContent=fmt(gtt/4,1);
+    if(Number.isFinite(durMin)){
+      const end=new Date(Date.now()+durMin*60000);
+      $('rEnd').textContent=end.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      const h=Math.floor(durMin/60),m=Math.round(durMin%60);
+      $('rEndLbl').textContent='fin prévue (dans '+[h?h+' h':'',m?String(m).padStart(h?2:1,'0')+' min':'',(!h&&!m)?'0 min':''].filter(Boolean).join(' ')+')';
+    }else{$('rEnd').textContent='--';$('rEndLbl').textContent='fin prévue';}
+    const isG=S.unit==='gtt';
+    $('bigNum').textContent=isG?fmt(gtt,gtt<10?1:0):fmt(mlh,mlh<10?1:0);
+    $('bigUnit').textContent=isG?'gouttes / min':'ml / h';
+    $('bigSub').textContent=Number.isFinite(gtt)&&gtt>0
+      ?(isG?fmt(mlh,1)+' ml/h':fmt(gtt,0)+' gtt/min')+' · 1 goutte / '+fmt(60/gtt,1)+' s'
+      :'Saisissez les valeurs';
+    $('uGtt').setAttribute('aria-pressed',isG);$('uMlh').setAttribute('aria-pressed',!isG);
+    $('mVol').setAttribute('aria-pressed',S.mode==='vol');$('mRate').setAttribute('aria-pressed',S.mode==='rate');
+    document.querySelectorAll('[data-mode]').forEach(el=>el.hidden=el.dataset.mode!==S.mode);
+    document.querySelectorAll('#factors .chip').forEach(c=>c.setAttribute('aria-pressed',+c.dataset.f===S.f));
+    $('tSound').setAttribute('aria-pressed',S.sound);$('tVib').setAttribute('aria-pressed',S.vib);
+    updateVerdict();
+  }
+
+  // ---- Animation de la goutte ----
+  const drop=$('drop'),ripple=$('ripple'),prog=$('ringProg'),track=$('ringTrack'),surface=$('surface');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const Y0=22,YS=82;
+  let period=0,t0=performance.now(),lastIdx=-1,splashAt=-1e9;
+  function setPeriod(gtt){
+    const p=(gtt>0&&Number.isFinite(gtt))?60/gtt:0;
+    if(p===period)return;
+    // garde la phase en cours pour éviter un saut visuel
+    const now=performance.now();
+    const frac=period?(((now-t0)/1000)%period)/period:0;
+    period=p;t0=now-frac*period*1000;lastIdx=-1;
+  }
+  function onDrop(){
+    splashAt=performance.now();
+    track.classList.remove('flash');void track.getBBox();track.classList.add('flash');
+    if(S.sound)beep();
+    if(S.vib&&navigator.vibrate){try{navigator.vibrate(25)}catch(e){}}
+  }
+  function frame(now){
+    if(period>0){
+      const el=(now-t0)/1000,idx=Math.floor(el/period),t=el-idx*period;
+      if(lastIdx>=0&&idx!==lastIdx)onDrop();
+      lastIdx=idx;
+      const fall=Math.min(.42,period*.5),grow=period-fall;
+      prog.setAttribute('stroke-dasharray',(t/period*100).toFixed(2)+' 100');
+      if(reduce){
+        drop.setAttribute('rx',3.4);drop.setAttribute('ry',3.8);drop.setAttribute('cy',Y0+3);
+      }else if(t<grow){
+        const r=3.6*Math.sqrt(t/grow);
+        drop.setAttribute('cy',Y0+r*.9);drop.setAttribute('rx',r);drop.setAttribute('ry',r*1.12);
+      }else{
+        const p=(t-grow)/fall;
+        drop.setAttribute('cy',Y0+3.2+(YS-Y0-3.2)*p*p);drop.setAttribute('rx',3.2);drop.setAttribute('ry',3.2+2.2*p);
+      }
+    }else{
+      prog.setAttribute('stroke-dasharray','0 100');
+      drop.setAttribute('rx',0);drop.setAttribute('ry',0);
+    }
+    // éclaboussure et vague de surface
+    const s=(now-splashAt)/1000;
+    if(s<.6&&!reduce){
+      const k=s/.6;ripple.setAttribute('rx',4+14*k);ripple.setAttribute('ry',1+1.6*k);ripple.setAttribute('opacity',1-k);
+      const a=2.2*(1-k)*Math.sin(s*28);
+      surface.setAttribute('d',`M30 82 Q40 ${82-a} 50 82 T70 82 V104 H30 Z`);
+    }else{ripple.setAttribute('rx',0);ripple.setAttribute('ry',0);}
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---- Son ----
+  let ac=null;
+  function beep(){
+    try{
+      ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.frequency.value=1250;g.gain.setValueAtTime(.18,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.06);
+      o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.07);
+    }catch(e){}
+  }
+
+  // ---- Garder l'écran allumé pendant le réglage ----
+  let lock=null;
+  async function keepAwake(){try{if(!lock&&navigator.wakeLock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>lock=null)}}catch(e){}}
+  document.addEventListener('pointerdown',keepAwake,{once:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&lock===null)keepAwake()});
+
+  // ---- Mesure au tap ----
+  let taps=[];
+  let measured=NaN;
+  $('tap').addEventListener('click',()=>{
+    const now=performance.now();
+    taps=taps.filter(t=>now-t<20000);
+    if(taps.length&&now-taps[taps.length-1]>12000)taps=[];
+    taps.push(now);if(taps.length>9)taps.shift();
+    measured=taps.length>=3?60000/((taps[taps.length-1]-taps[0])/(taps.length-1)):NaN;
+    if(S.vib&&navigator.vibrate){try{navigator.vibrate(10)}catch(e){}}
+    updateVerdict();
+  });
+  $('tapReset').addEventListener('click',()=>{taps=[];measured=NaN;updateVerdict();});
+  function updateVerdict(){
+    const v=$('verdict');
+    if(!Number.isFinite(measured)){
+      const n=taps.length;
+      v.innerHTML='<span class="pill idle">En attente</span><span>'+(n?('Encore '+(3-n)+' touche'+(3-n>1?'s':'')+'.'):'3 touches suffisent.')+'</span>';
+      return;
+    }
+    const mlh=measured*60/S.f;
+    let cls='idle',tag='Mesuré',msg=fmt(measured,0)+' gtt/min ≈ '+fmt(mlh,0)+' ml/h';
+    if(R.gtt>0){
+      const d=(measured-R.gtt)/R.gtt*100;
+      if(Math.abs(d)<=5){cls='ok';tag='Bon réglage';}
+      else if(d>0){cls=d>15?'bad':'warn';tag='Trop rapide';msg+=' · +'+fmt(d,0)+' % : fermez un peu la molette';}
+      else{cls=d<-15?'bad':'warn';tag='Trop lent';msg+=' · '+fmt(d,0)+' % : ouvrez un peu la molette';}
+    }
+    v.innerHTML='<span class="pill '+cls+'">'+tag+'</span><span>'+msg+'</span>';
+  }
+
+  // ---- Événements ----
+  ['vol','hrs','mins','rate'].forEach(k=>$(k).addEventListener('input',compute));
+  document.querySelectorAll('[data-vol]').forEach(b=>b.addEventListener('click',()=>{$('vol').value=b.dataset.vol;compute()}));
+  document.querySelectorAll('[data-dur]').forEach(b=>b.addEventListener('click',()=>{const m=+b.dataset.dur;$('hrs').value=Math.floor(m/60);$('mins').value=m%60;compute()}));
+  document.querySelectorAll('#factors .chip').forEach(b=>b.addEventListener('click',()=>{S.f=+b.dataset.f;compute()}));
+  $('uGtt').onclick=()=>{S.unit='gtt';render();save()};
+  $('uMlh').onclick=()=>{S.unit='mlh';render();save()};
+  $('bigNum').onclick=()=>{S.unit=S.unit==='gtt'?'mlh':'gtt';render();save()};
+  $('mVol').onclick=()=>{if(S.mode!=='vol'){S.mode='vol';if(R.durMin>0){$('hrs').value=Math.floor(R.durMin/60);$('mins').value=Math.round(R.durMin%60)}compute()}};
+  $('mRate').onclick=()=>{if(S.mode!=='rate'){S.mode='rate';if(R.mlh>0)$('rate').value=Math.round(R.mlh*10)/10;compute()}};
+  $('tSound').onclick=()=>{S.sound=!S.sound;if(S.sound)beep();render();save()};
+  $('tVib').onclick=()=>{S.vib=!S.vib;render();save()};
+  setInterval(render,30000); // l'heure de fin reste juste
+  compute();
+})();
+</script>
