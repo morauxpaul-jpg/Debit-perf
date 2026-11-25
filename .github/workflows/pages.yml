@@ -1,5 +1,5 @@
 # Met en ligne la version web : copie le dossier web/ dans la branche gh-pages,
-# que GitHub Pages publie sur https://morauxpaul-jpg.github.io/debit-perf/
+# que GitHub Pages publie sur https://morauxpaul-jpg.github.io/Debit-perf/ (D majuscule obligatoire)
 # Relance à la main : onglet Actions → « Publier la version web » → Run workflow.
 name: Publier la version web
 on:
