@@ -4,7 +4,7 @@ Calcul du débit d'une perfusion (gouttes/min ou ml/h) avec une goutte animée a
 pour régler la molette. Deux versions :
 
 - `web-prototype.html` : page web, utilisable sur téléphone.
-- App Wear OS (Galaxy Watch) : `AndroidManifest.xml`, `res/`, `src/`.
+- App Android, pour la Galaxy Watch et le téléphone : `AndroidManifest.xml`, `res/`, `src/`.
 
 ## Formules
 - ml/h = volume (ml) × 60 / durée (min)
@@ -23,6 +23,10 @@ Il faut un JDK 17+ et, depuis dl.google.com, build-tools 35.0.1 et platform andr
 ```
 La clé de signature `debitperf.keystore` n'est **pas** dans ce dépôt (fichier secret). Gardez-la à part :
 sans elle, une mise à jour ne peut pas s'installer par-dessus la version existante.
+
+## Installer sur le téléphone (Android)
+Le même APK s'installe sur le téléphone : ouvrir `DebitPerf.apk` depuis les téléchargements,
+autoriser « Installer des applis inconnues » pour l'appli qui l'ouvre (Fichiers ou Chrome), puis Installer.
 
 ## Installer sur la montre
 1. Montre : Paramètres → À propos de la montre → Logiciel → toucher 5 fois « Version du logiciel ».
