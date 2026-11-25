@@ -1,4 +1,5 @@
-# Met en ligne la version web (dossier web/) sur GitHub Pages à chaque modification.
+# Met en ligne la version web : copie le dossier web/ dans la branche gh-pages,
+# que GitHub Pages publie sur https://morauxpaul-jpg.github.io/debit-perf/
 # Relance à la main : onglet Actions → « Publier la version web » → Run workflow.
 name: Publier la version web
 on:
@@ -7,23 +8,23 @@ on:
     paths: ['web/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
   publier:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploiement.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: web
-      - id: deploiement
-        uses: actions/deploy-pages@v4
+      - name: Copier web/ dans la branche gh-pages
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          cp -r web /tmp/site && touch /tmp/site/.nojekyll
+          git fetch origin gh-pages --depth 1
+          git checkout -B gh-pages origin/gh-pages
+          git rm -rq . && cp -r /tmp/site/. . && git add -A
+          git diff --cached --quiet && echo "Rien de nouveau" && exit 0
+          git commit -m "Site mis à jour depuis main ${GITHUB_SHA::7}"
+          git push origin gh-pages
