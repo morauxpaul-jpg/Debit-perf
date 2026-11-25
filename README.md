@@ -6,6 +6,7 @@ pour régler la molette. Deux versions :
 - App Android (un seul APK) : sur la Galaxy Watch, interface ronde (`src/fr/debitperf/DripView.java`) ;
   sur le téléphone, interface téléphone (`web/index.html`, embarquée dans l'APK, hors ligne).
 - Version web installable (iPhone et Android) : dossier `web/` (page, manifeste, service worker, icônes).
+  En ligne sur https://morauxpaul-jpg.github.io/debit-perf/ (publiée par `.github/workflows/pages.yml`).
   Sur iPhone : ouvrir l'adresse dans Safari → Partager → « Sur l'écran d'accueil ».
 
 ## Formules
