@@ -1,4 +1,5 @@
 # Met en ligne la version web (dossier web/) sur GitHub Pages à chaque modification.
+# Relance à la main : onglet Actions → « Publier la version web » → Run workflow.
 name: Publier la version web
 on:
   push:
