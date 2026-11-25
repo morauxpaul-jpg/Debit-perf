@@ -38,7 +38,9 @@ public class DripView extends View {
     static final int BAD = 0xFFF07A6A;
 
     static final String[] FEEDBACK = {"MUET", "VIBRE", "BIP", "V+BIP"};
-    static final String[] ROWS = {"Volume", "Durée", "Débit", "Perfuseur"};
+    static final String[] ROWS = {"Poche", "Ajouts", "Durée", "Débit", "Perfuseur"};
+    static final int NROWS = 5;
+    static final float ROW_TOP = 0.18f, ROW_STEP = 0.105f, ROW_H = 0.095f;
 
     final Calc c = new Calc();
     final SharedPreferences prefs;
@@ -85,7 +87,8 @@ public class DripView extends View {
     public DripView(Context ctx) {
         super(ctx);
         prefs = ctx.getSharedPreferences("debit", Context.MODE_PRIVATE);
-        c.volume = prefs.getFloat("volume", 500f);
+        c.bag = prefs.getFloat("bag", prefs.getFloat("volume", 500f));
+        c.add = prefs.getFloat("add", 0f);
         c.durMin = prefs.getFloat("durMin", 240f);
         c.factor = prefs.getInt("factor", 20);
         unitMlh = prefs.getBoolean("unitMlh", false);
@@ -98,7 +101,8 @@ public class DripView extends View {
 
     void save() {
         prefs.edit()
-                .putFloat("volume", (float) c.volume)
+                .putFloat("bag", (float) c.bag)
+                .putFloat("add", (float) c.add)
                 .putFloat("durMin", (float) c.durMin)
                 .putInt("factor", c.factor)
                 .putBoolean("unitMlh", unitMlh)
@@ -218,7 +222,7 @@ public class DripView extends View {
         String sub = (unitMlh ? Calc.num(g) + " gtt/min" : Calc.num(m) + " ml/h")
                 + (period > 0 ? "  ·  1 / " + String.format(Locale.FRANCE, "%.1f", period) + " s" : "");
         text(cv, sub, 0.5f, 0.74f, 0.042f, FG, bodyFace, Paint.Align.CENTER);
-        text(cv, Math.round(c.volume) + " ml · " + Calc.duration(c.durMin) + " · fin " + endTime(),
+        text(cv, volText() + " · " + Calc.duration(c.durMin) + " · fin " + endTime(),
                 0.5f, 0.787f, 0.036f, MUTED, bodyFace, Paint.Align.CENTER);
 
         button(cv, 0.30f, 0.875f, FEEDBACK[feedback], feedback != 0);
@@ -299,40 +303,59 @@ public class DripView extends View {
         p.setStyle(Paint.Style.FILL);
     }
 
+    String volText() {
+        return c.add > 0 ? Math.round(c.bag) + "+" + Math.round(c.add) + " ml" : Math.round(c.bag) + " ml";
+    }
+
+    /** En-tête « ‹ TITRE » : touché, il ramène à l'écran principal. */
+    void header(Canvas cv, String title) {
+        r.set(X(0.30f), Y(0.075f), X(0.70f), Y(0.155f));
+        p.setColor(PANEL);
+        cv.drawRoundRect(r, 0.04f * S, 0.04f * S, p);
+        text(cv, "‹  " + title, 0.5f, 0.128f, 0.04f, FLUID, labelFace, Paint.Align.CENTER);
+    }
+
+    boolean hitHeader(float x, float y) {
+        return y < Y(0.17f) && x > X(0.25f) && x < X(0.75f);
+    }
+
     void drawSettings(Canvas cv, long now) {
         ring(cv, now, 0, false);
-        text(cv, "RÉGLAGES", 0.5f, 0.155f, 0.042f, MUTED, labelFace, Paint.Align.CENTER);
+        header(cv, "RÉGLAGES");
         String[] vals = {
-                Math.round(c.volume) + " ml",
+                Math.round(c.bag) + " ml",
+                (c.add > 0 ? "+" : "") + Math.round(c.add) + " ml",
                 Calc.duration(c.durMin),
                 Calc.num(c.mlh()) + " ml/h",
                 c.factor + " gtt/ml"
         };
-        for (int i = 0; i < 4; i++) {
-            float top = 0.205f + i * 0.125f;
-            r.set(X(0.12f), Y(top), X(0.88f), Y(top + 0.11f));
+        for (int i = 0; i < NROWS; i++) {
+            float top = ROW_TOP + i * ROW_STEP;
+            r.set(X(0.12f), Y(top), X(0.88f), Y(top + ROW_H));
             p.setColor(i == sel ? 0xFF0E1A20 : PANEL);
-            cv.drawRoundRect(r, 0.03f * S, 0.03f * S, p);
+            cv.drawRoundRect(r, 0.028f * S, 0.028f * S, p);
             if (i == sel) {
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(0.006f * S);
                 p.setColor(FLUID);
-                cv.drawRoundRect(r, 0.03f * S, 0.03f * S, p);
+                cv.drawRoundRect(r, 0.028f * S, 0.028f * S, p);
                 p.setStyle(Paint.Style.FILL);
             }
-            float base = top + 0.072f;
-            text(cv, ROWS[i], 0.16f, base, 0.042f, i == sel ? FLUID : MUTED, bodyFace, Paint.Align.LEFT);
-            text(cv, vals[i], 0.84f, base + 0.004f, 0.056f, FG, numFace, Paint.Align.RIGHT);
+            float base = top + 0.063f;
+            text(cv, ROWS[i], 0.16f, base, 0.037f, i == sel ? FLUID : MUTED, bodyFace, Paint.Align.LEFT);
+            text(cv, vals[i], 0.84f, base + 0.003f, 0.05f, FG, numFace, Paint.Align.RIGHT);
         }
-        text(cv, "= " + Calc.num(c.gtt()) + " gouttes/min", 0.5f, 0.755f, 0.048f, FLUID, numFace, Paint.Align.CENTER);
-        button(cv, 0.29f, 0.84f, "−", false);
-        button(cv, 0.50f, 0.885f, "OK", true);
-        button(cv, 0.71f, 0.84f, "+", false);
+        String hint = sel == 0 ? "touchez Poche : taille suivante" : sel == 4 ? "touchez : 20 · 60 · 15 · 10" : "";
+        text(cv, "= " + Calc.num(c.gtt()) + " gtt/min · " + Math.round(c.volume()) + " ml", 0.5f, 0.74f, 0.042f, FLUID, numFace, Paint.Align.CENTER);
+        if (!hint.isEmpty()) text(cv, hint, 0.5f, 0.775f, 0.03f, MUTED, bodyFace, Paint.Align.CENTER);
+        button(cv, 0.29f, 0.845f, "−", false);
+        button(cv, 0.50f, 0.895f, "OK", true);
+        button(cv, 0.71f, 0.845f, "+", false);
     }
 
     void drawMeasure(Canvas cv, long now) {
         ring(cv, now, 0, false);
-        text(cv, "MESURE", 0.5f, 0.16f, 0.042f, MUTED, labelFace, Paint.Align.CENTER);
+        header(cv, "MESURE");
         double target = c.gtt();
         double m = Calc.measuredRate(taps, nTaps);
         if (Double.isNaN(m)) {
@@ -406,10 +429,11 @@ public class DripView extends View {
 
     void stepSelected(int dir) {
         switch (sel) {
-            case 0: c.volume = Calc.stepVolume(c.volume, dir); break;
-            case 1: c.durMin = Calc.stepDuration(c.durMin, dir); break;
-            case 2: c.setMlh(Calc.stepRate(c.mlh(), dir)); break;
-            default: c.factor = Calc.nextFactor(c.factor, dir); break;
+            case 0: c.bag = Calc.stepVolume(c.bag, dir); break;
+            case 1: c.add = Calc.stepAdd(c.add, dir); break;
+            case 2: c.durMin = Calc.stepDuration(c.durMin, dir); break;
+            case 3: c.setMlh(Calc.stepRate(c.mlh(), dir)); break;
+            default: c.factor = Calc.stepFactor(c.factor, dir); break;
         }
         updatePeriod();
         invalidate();
@@ -425,7 +449,7 @@ public class DripView extends View {
         }
         if (screen == MEASURE) {
             if (a == MotionEvent.ACTION_DOWN) {
-                if (hit(x, y, 0.62f, 0.86f, 0.09f)) { back(); return true; }
+                if (hitHeader(x, y) || hit(x, y, 0.62f, 0.86f, 0.09f)) { back(); return true; }
                 if (hit(x, y, 0.38f, 0.86f, 0.09f)) { nTaps = 0; return true; }
                 tap(SystemClock.uptimeMillis());
             }
@@ -433,18 +457,20 @@ public class DripView extends View {
         }
         if (screen == SETTINGS) {
             if (a == MotionEvent.ACTION_DOWN) {
-                int dir = hit(x, y, 0.29f, 0.84f, 0.09f) ? -1 : hit(x, y, 0.71f, 0.84f, 0.09f) ? 1 : 0;
+                int dir = hit(x, y, 0.29f, 0.845f, 0.09f) ? -1 : hit(x, y, 0.71f, 0.845f, 0.09f) ? 1 : 0;
                 if (dir != 0) {
                     stepSelected(dir);
                     repeatDir = dir;
                     handler.postDelayed(repeater, 420);
                 }
             } else if (a == MotionEvent.ACTION_UP) {
-                if (hit(x, y, 0.50f, 0.885f, 0.09f)) { back(); return true; }
-                for (int i = 0; i < 4; i++) {
-                    float top = 0.205f + i * 0.125f;
-                    if (y >= Y(top) && y <= Y(top + 0.11f) && x >= X(0.1f) && x <= X(0.9f)) {
-                        if (sel == i && i == 3) stepSelected(1); // perfuseur : un tap fait défiler
+                if (hitHeader(x, y) || hit(x, y, 0.50f, 0.895f, 0.09f)) { back(); return true; }
+                for (int i = 0; i < NROWS; i++) {
+                    float top = ROW_TOP + i * ROW_STEP;
+                    if (y >= Y(top) && y <= Y(top + ROW_H) && x >= X(0.1f) && x <= X(0.9f)) {
+                        // ligne déjà choisie : un tap passe à la valeur classique suivante
+                        if (sel == i && i == 0) { c.bag = Calc.nextBag(c.bag); updatePeriod(); }
+                        if (sel == i && i == 4) { c.factor = Calc.nextFactor(c.factor, 1); updatePeriod(); }
                         sel = i;
                         invalidate();
                     }

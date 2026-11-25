@@ -5,13 +5,21 @@ import java.util.Locale;
 /** Calculs de débit, sans dépendance Android (testable sur un PC). */
 public final class Calc {
     public static final int[] FACTORS = {20, 60, 15, 10};
+    public static final int[] BAGS = {50, 100, 250, 500, 1000};
 
-    public double volume = 500;   // ml
+    public double bag = 500;      // volume de la poche (ml)
+    public double add = 0;        // ml ajoutés dans la poche
     public double durMin = 240;   // minutes
     public int factor = 20;       // gouttes par ml
 
+    /** Volume total à passer : poche + ajouts. */
+    public double volume() {
+        return bag + add;
+    }
+
     public double mlh() {
-        return (volume > 0 && durMin > 0) ? volume * 60.0 / durMin : 0;
+        double v = volume();
+        return (v > 0 && durMin > 0) ? v * 60.0 / durMin : 0;
     }
 
     public double gtt() {
@@ -26,7 +34,8 @@ public final class Calc {
 
     /** Fixe le débit en ml/h : la durée est recalculée. */
     public void setMlh(double r) {
-        if (r > 0 && volume > 0) durMin = volume * 60.0 / r;
+        double v = volume();
+        if (r > 0 && v > 0) durMin = v * 60.0 / r;
     }
 
     static double snap(double v, double step, int dir) {
@@ -51,6 +60,22 @@ public final class Calc {
     public static double stepRate(double r, int dir) {
         double step = (dir > 0 ? r < 50 : r <= 50) ? 1 : (dir > 0 ? r < 300 : r <= 300) ? 5 : 10;
         return clamp(snap(r, step, dir), 1, 999);
+    }
+
+    public static double stepAdd(double a, int dir) {
+        double step = (dir > 0 ? a < 50 : a <= 50) ? 5 : 10;
+        return clamp(snap(a, step, dir), 0, 1000);
+    }
+
+    /** Gouttes par ml personnalisé, de 1 en 1. */
+    public static int stepFactor(int f, int dir) {
+        return (int) clamp(f + dir, 1, 100);
+    }
+
+    /** Taille de poche classique suivante (après la dernière, revient à la première). */
+    public static double nextBag(double b) {
+        for (int v : BAGS) if (v > b + 1e-9) return v;
+        return BAGS[0];
     }
 
     public static int nextFactor(int f, int dir) {

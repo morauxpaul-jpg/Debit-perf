@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Débit Perf</title>
+<meta name="theme-color" content="#0a0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Débit Perf">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+/* Une colonne pensée pour le téléphone : cadran animé en haut, réglages en cartes, écrans plein cadre pour la mesure et la personnalisation. */
+:root{
+  --bg:#0a0f13; --panel:#121a20; --panel2:#0e161b; --line:#22303a;
+  --fg:#e6eef2; --muted:#8ba0ab; --fluid:#8fdcec; --fluid-deep:#3b8fa3;
+  --ok:#6fd49a; --warn:#f0b35a; --bad:#f07a6a;
+  --f-num:"Roboto Condensed","SF Pro Rounded","Arial Narrow",system-ui,sans-serif;
+  --f-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);-webkit-tap-highlight-color:transparent}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;
+  padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+[hidden]{display:none!important}
+.wrap{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-family:var(--f-num);font-weight:700;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--muted)}
+.icon-btn{font:inherit;font-size:.85rem;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
+button{touch-action:manipulation}
+button:focus-visible,input:focus-visible{outline:2px solid var(--fluid);outline-offset:2px}
+
+/* Cadran */
+.watch{position:relative;width:min(100%,300px);aspect-ratio:1;margin:0 auto;border-radius:50%;
+  background:radial-gradient(circle at 50% 38%,#16222a 0%,#0b1116 70%);
+  box-shadow:0 0 0 6px #1a242b,0 0 0 7px #2b3943,0 14px 34px rgba(0,0,0,.55)}
+.watch svg.ring{position:absolute;inset:0;width:100%;height:100%}
+.ring-track{fill:none;stroke:var(--line);stroke-width:3}
+.ring-prog{fill:none;stroke:var(--fluid);stroke-width:3;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.face{position:absolute;inset:9%;display:flex;flex-direction:column;align-items:center;text-align:center}
+.chamber{width:44%;height:auto;margin-top:1%}
+.big{font-family:var(--f-num);font-weight:700;font-size:3.2rem;line-height:1;font-variant-numeric:tabular-nums;background:none;border:0;color:var(--fg);padding:0 6px;cursor:pointer}
+.unit{font-family:var(--f-num);font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--fluid)}
+.sub{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px}
+.flash{animation:flash .35s ease-out}
+@keyframes flash{from{stroke:#fff;stroke-width:5}to{stroke:var(--line);stroke-width:3}}
+
+/* Cartes */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.label{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field span{font-size:.78rem;color:var(--muted)}
+input[type=number]{font-family:var(--f-num);font-size:1.25rem;font-weight:600;width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]:focus{outline:2px solid var(--fluid);border-color:transparent}
+.stepper{display:grid;grid-template-columns:48px 1fr 48px;gap:6px}
+.stepper button{font:inherit;font-size:1.4rem;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:9px;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:.85rem;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{border-color:var(--fluid);color:var(--fluid)}
+.chip small{color:var(--muted);margin-left:4px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{font:inherit;font-size:.88rem;font-weight:500;background:none;border:0;color:var(--muted);padding:8px 4px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--line);color:var(--fg)}
+.total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px dashed var(--line);padding-top:8px;font-size:.9rem;color:var(--muted)}
+.total b{font-family:var(--f-num);font-size:1.15rem;color:var(--fg);font-variant-numeric:tabular-nums}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.res{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.res b{font-family:var(--f-num);font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
+.res span{font-size:.75rem;color:var(--muted)}
+.primary{font-family:var(--f-num);font-weight:700;font-size:1.05rem;letter-spacing:.04em;width:100%;padding:15px;border-radius:12px;border:1px solid var(--fluid-deep);background:#0e1a20;color:var(--fluid);cursor:pointer}
+.note{font-size:.76rem;color:var(--muted);text-align:center;max-width:42ch;margin:0 auto}
+
+/* Écrans plein cadre */
+.screen{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;
+  padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow-y:auto}
+.screen .bar{display:flex;align-items:center;gap:12px;max-width:460px;width:100%;margin:0 auto 12px}
+.back{font:inherit;font-size:1rem;font-weight:600;background:var(--panel);color:var(--fluid);border:1px solid var(--line);border-radius:999px;padding:8px 16px 8px 12px;cursor:pointer}
+.screen h2{font-family:var(--f-num);font-size:1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0}
+.screen .inner{max-width:460px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px;flex:1}
+.tapzone{flex:1;min-height:260px;border-radius:18px;border:1px dashed var(--fluid-deep);background:#0e1a20;color:var(--fluid);font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.tapzone:active{background:#13252d}
+.tapzone .m{font-family:var(--f-num);font-size:4rem;font-weight:700;line-height:1;color:var(--fg);font-variant-numeric:tabular-nums}
+.verdict{font-family:var(--f-num);font-size:1.3rem;font-weight:700;letter-spacing:.04em}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.idle{color:var(--muted)}
+.list{display:flex;flex-wrap:wrap;gap:6px}
+.item{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;font-variant-numeric:tabular-nums}
+.item button{font:inherit;width:26px;height:26px;border-radius:50%;border:0;background:var(--line);color:var(--fg);cursor:pointer;line-height:1}
+.add{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.add.two{grid-template-columns:1fr 1fr auto}
+.add .icon-btn{padding:10px 14px}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Débit perf</h1>
+    <button class="icon-btn" id="openPrefs">Personnaliser</button>
+  </div>
+
+  <div class="watch" aria-label="Indicateur de débit">
+    <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="ring-track" id="ringTrack" cx="50" cy="50" r="47.5"/>
+      <circle class="ring-prog" id="ringProg" cx="50" cy="50" r="47.5" pathLength="100" stroke-dasharray="0 100"/>
+    </svg>
+    <div class="face">
+      <svg class="chamber" viewBox="0 0 100 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="glass" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset=".5" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".08"/></linearGradient>
+          <clipPath id="inside"><rect x="31" y="14" width="38" height="88" rx="9"/></clipPath>
+        </defs>
+        <rect x="45" y="0" width="10" height="16" rx="2" fill="#2b3943"/>
+        <rect x="30" y="13" width="40" height="90" rx="10" fill="url(#glass)" stroke="#4a5d69" stroke-width="1.5"/>
+        <g clip-path="url(#inside)">
+          <path id="surface" d="M30 82 Q40 80 50 82 T70 82 V104 H30 Z" fill="#3b8fa3" opacity=".85"/>
+          <ellipse id="ripple" cx="50" cy="82" rx="0" ry="0" fill="none" stroke="#8fdcec" stroke-width="1"/>
+          <ellipse id="drop" cx="50" cy="22" rx="0" ry="0" fill="#8fdcec"/>
+        </g>
+        <rect x="47" y="13" width="6" height="7" fill="#4a5d69"/>
+        <rect x="46" y="103" width="8" height="17" rx="2" fill="#2b3943"/>
+      </svg>
+      <button class="big" id="bigNum" title="Changer d'unité">--</button>
+      <div class="unit" id="bigUnit">gouttes / min</div>
+      <div class="sub" id="bigSub">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Poche</div>
+    <div class="chips" id="bagChips"></div>
+    <label class="field"><span>Volume de la poche (ml)</span>
+      <input id="bag" type="number" inputmode="decimal" min="0" step="any"></label>
+    <div class="label">Ajouts dans la poche</div>
+    <div class="stepper">
+      <button id="addMinus" aria-label="Retirer 5 ml">−</button>
+      <input id="add" type="number" inputmode="decimal" min="0" step="any" aria-label="Ml ajoutés">
+      <button id="addPlus" aria-label="Ajouter 5 ml">+</button>
+    </div>
+    <div class="chips">
+      <button class="chip" data-addq="5">+5</button>
+      <button class="chip" data-addq="10">+10</button>
+      <button class="chip" data-addq="20">+20</button>
+      <button class="chip" data-addq="50">+50</button>
+      <button class="chip" id="addClear">Aucun ajout</button>
+    </div>
+    <div class="total"><span>Total à passer</span><b id="total">--</b></div>
+  </div>
+
+  <div class="card">
+    <div class="seg" role="group" aria-label="Mode de calcul">
+      <button id="mDur" aria-pressed="true">Je connais la durée</button>
+      <button id="mRate" aria-pressed="false">Je connais le débit</button>
+    </div>
+    <div class="row" data-mode="dur">
+      <label class="field"><span>Heures</span><input id="hrs" type="number" inputmode="numeric" min="0" step="1"></label>
+      <label class="field"><span>Minutes</span><input id="mins" type="number" inputmode="numeric" min="0" max="59" step="1"></label>
+    </div>
+    <div class="chips" data-mode="dur" id="durChips"></div>
+    <div class="row" data-mode="rate" hidden>
+      <label class="field"><span>Débit prescrit (ml/h)</span><input id="rate" type="number" inputmode="decimal" min="0" step="any"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Perfuseur (gouttes par ml)</div>
+    <div class="chips" id="factorChips"></div>
+    <label class="field"><span>Autre valeur (gouttes/ml)</span>
+      <input id="factor" type="number" inputmode="numeric" min="1" max="100" step="1"></label>
+  </div>
+
+  <div class="results">
+    <div class="res"><b id="rGtt">--</b><span>gouttes / min</span></div>
+    <div class="res"><b id="rMlh">--</b><span>ml / h</span></div>
+    <div class="res"><b id="r15">--</b><span>gouttes en 15 s</span></div>
+    <div class="res"><b id="rEnd">--</b><span id="rEndLbl">fin prévue</span></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Repère à chaque goutte</div>
+    <div class="chips">
+      <button class="chip" id="tSound" aria-pressed="false">Bip</button>
+      <button class="chip" id="tVib" aria-pressed="false">Vibration</button>
+    </div>
+    <button class="primary" id="openMeasure">Vérifier le débit réel</button>
+  </div>
+
+  <p class="note">Aide au calcul. Vérifiez la prescription et le nombre de gouttes par ml inscrit sur l'emballage du perfuseur.</p>
+</div>
+
+<!-- Écran : mesure au tap -->
+<section class="screen" id="measure" hidden aria-label="Mesure du débit">
+  <div class="bar"><button class="back" data-back>‹ Retour</button><h2>Mesure</h2></div>
+  <div class="inner">
+    <button class="tapzone" id="tap">
+      <span class="m" id="mVal">0 / 3</span>
+      <span id="mHint">Touchez ici à chaque goutte qui tombe</span>
+    </button>
+    <div class="verdict idle" id="verdict">En attente</div>
+    <div id="advice" class="sub" style="font-size:.95rem">Cible : -- gouttes/min</div>
+    <button class="icon-btn" id="tapReset">Recommencer la mesure</button>
+  </div>
+</section>
+
+<!-- Écran : personnalisation -->
+<section class="screen" id="prefs" hidden aria-label="Personnaliser">
+  <div class="bar"><button class="back" data-back>‹ Retour</button><h2>Personnaliser</h2></div>
+  <div class="inner">
+    <div class="card">
+      <div class="label">Mes tailles de poche (ml)</div>
+      <div class="list" id="bagList"></div>
+      <div class="add"><label class="field"><span>Nouvelle taille (ml)</span><input id="newBag" type="number" inputmode="decimal" min="1"></label><button class="icon-btn" id="addBag">Ajouter</button></div>
+    </div>
+    <div class="card">
+      <div class="label">Mes durées</div>
+      <div class="list" id="durList"></div>
+      <div class="add two"><label class="field"><span>Heures</span><input id="newDurH" type="number" inputmode="numeric" min="0"></label><label class="field"><span>Minutes</span><input id="newDurM" type="number" inputmode="numeric" min="0" max="59"></label><button class="icon-btn" id="addDur">Ajouter</button></div>
+    </div>
+    <div class="card">
+      <div class="label">Mes perfuseurs (gouttes/ml)</div>
+      <div class="list" id="factorList"></div>
+      <div class="add"><label class="field"><span>Nouveau perfuseur</span><input id="newFactor" type="number" inputmode="numeric" min="1" max="100"></label><button class="icon-btn" id="addFactor">Ajouter</button></div>
+    </div>
+    <div class="card">
+      <div class="label">Tolérance de la mesure</div>
+      <div class="seg" role="group" aria-label="Tolérance">
+        <button data-tol="5">± 5 %</button><button data-tol="10">± 10 %</button><button data-tol="15">± 15 %</button>
+      </div>
+    </div>
+    <button class="icon-btn" id="resetAll">Revenir aux réglages d'origine</button>
+  </div>
+</section>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const DEF={bag:500,add:0,mode:'dur',h:4,m:0,rate:125,f:20,unit:'gtt',sound:false,vib:false,tol:5,
+    bags:[50,100,250,500,1000],durs:[30,60,120,240,480,720,1440],factors:[20,60,15,10]};
+  const FNAME={20:'standard',60:'micro',15:'transfusion'};
+  let S=Object.assign({},DEF);
+  try{const s=JSON.parse(localStorage.getItem('debitPerf2'));if(s)Object.assign(S,s);}catch(e){}
+  const save=()=>{try{localStorage.setItem('debitPerf2',JSON.stringify(S))}catch(e){}};
+  const fmt=(n,d=0)=>Number.isFinite(n)&&n>0?n.toLocaleString('fr-FR',{maximumFractionDigits:d}):'--';
+  const nf=n=>fmt(n,n<10?1:0);
+  const durTxt=m=>{m=Math.round(m);const h=Math.floor(m/60),r=m%60;return h?(h+' h'+(r?' '+String(r).padStart(2,'0'):'')):r+' min'};
+  const vib=ms=>{try{if(window.AndroidBridge)AndroidBridge.vibrate(ms);else if(navigator.vibrate)navigator.vibrate(ms)}catch(e){}};
+
+  // ---- Calcul ----
+  let R={};
+  function compute(){
+    const vol=(+S.bag||0)+(+S.add||0);
+    let mlh,dur;
+    if(S.mode==='dur'){dur=(+S.h||0)*60+(+S.m||0);mlh=vol>0&&dur>0?vol*60/dur:NaN}
+    else{mlh=+S.rate>0?+S.rate:NaN;dur=vol>0&&mlh>0?vol/mlh*60:NaN}
+    R={vol,mlh,dur,gtt:mlh*S.f/60};
+    render();setPeriod(R.gtt);save();
+  }
+
+  // ---- Affichage ----
+  function chips(el,values,label,isOn,onPick){
+    el.innerHTML='';
+    values.forEach(v=>{const b=document.createElement('button');b.className='chip';b.innerHTML=label(v);
+      b.setAttribute('aria-pressed',isOn(v));b.onclick=()=>onPick(v);el.appendChild(b)});
+  }
+  function setVal(id,v){const el=$(id);if(document.activeElement!==el)el.value=(v===''||v==null)?'':v}
+  function render(){
+    const {vol,mlh,dur,gtt}=R, isG=S.unit==='gtt';
+    chips($('bagChips'),S.bags,v=>v+' ml',v=>+S.bag===v,v=>{S.bag=v;compute()});
+    chips($('durChips'),S.durs,durTxt,v=>(+S.h*60+ +S.m)===v,v=>{S.h=Math.floor(v/60);S.m=v%60;compute()});
+    chips($('factorChips'),S.factors,v=>v+(FNAME[v]?'<small>'+FNAME[v]+'</small>':''),v=>+S.f===v,v=>{S.f=v;compute()});
+    setVal('bag',S.bag);setVal('add',S.add||0);setVal('hrs',S.h);setVal('mins',S.m);setVal('factor',S.f);
+    setVal('rate',S.mode==='rate'?S.rate:(Number.isFinite(mlh)?Math.round(mlh*10)/10:''));
+    $('total').textContent=vol>0?(S.add>0?S.bag+' + '+S.add+' = ':'')+fmt(vol,1)+' ml':'--';
+    $('mDur').setAttribute('aria-pressed',S.mode==='dur');$('mRate').setAttribute('aria-pressed',S.mode==='rate');
+    document.querySelectorAll('[data-mode]').forEach(el=>el.hidden=el.dataset.mode!==S.mode);
+    $('rGtt').textContent=nf(gtt);$('rMlh').textContent=nf(mlh);$('r15').textContent=fmt(gtt/4,1);
+    if(Number.isFinite(dur)&&dur>0){
+      $('rEnd').textContent=new Date(Date.now()+dur*60000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      $('rEndLbl').textContent='fin prévue (dans '+durTxt(dur)+')';
+    }else{$('rEnd').textContent='--';$('rEndLbl').textContent='fin prévue'}
+    $('bigNum').textContent=isG?nf(gtt):nf(mlh);
+    $('bigUnit').textContent=isG?'gouttes / min':'ml / h';
+    $('bigSub').textContent=gtt>0?(isG?nf(mlh)+' ml/h':nf(gtt)+' gtt/min')+' · 1 goutte / '+fmt(60/gtt,1)+' s':'Saisissez les valeurs';
+    $('tSound').setAttribute('aria-pressed',S.sound);$('tVib').setAttribute('aria-pressed',S.vib);
+    document.querySelectorAll('[data-tol]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.tol===+S.tol));
+    renderPrefs();updateVerdict();
+  }
+  function list(el,values,label,onRemove){
+    el.innerHTML='';
+    values.forEach(v=>{const s=document.createElement('span');s.className='item';s.textContent=label(v);
+      const x=document.createElement('button');x.textContent='×';x.setAttribute('aria-label','Retirer '+label(v));
+      x.onclick=()=>onRemove(v);s.appendChild(x);el.appendChild(s)});
+  }
+  function renderPrefs(){
+    list($('bagList'),S.bags,v=>v+' ml',v=>{S.bags=S.bags.filter(x=>x!==v);compute()});
+    list($('durList'),S.durs,durTxt,v=>{S.durs=S.durs.filter(x=>x!==v);compute()});
+    list($('factorList'),S.factors,v=>v+' gtt/ml',v=>{S.factors=S.factors.filter(x=>x!==v);compute()});
+  }
+  const addSorted=(arr,v)=>arr.includes(v)?arr:[...arr,v].sort((a,b)=>a-b);
+
+  // ---- Animation de la goutte ----
+  const drop=$('drop'),ripple=$('ripple'),prog=$('ringProg'),track=$('ringTrack'),surface=$('surface');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let period=0,t0=performance.now(),lastIdx=-1,splashAt=-1e9;
+  function setPeriod(g){
+    const p=g>0&&Number.isFinite(g)?60/g:0;if(p===period)return;
+    const now=performance.now(),frac=period?(((now-t0)/1000)%period)/period:0;
+    period=p;t0=now-frac*period*1000;lastIdx=-1;
+  }
+  function onDrop(){
+    splashAt=performance.now();
+    track.classList.remove('flash');void track.getBBox();track.classList.add('flash');
+    if(!$('measure').hidden)return;
+    if(S.sound)beep();if(S.vib)vib(25);
+  }
+  function frame(now){
+    if(period>0){
+      const el=(now-t0)/1000,idx=Math.floor(el/period),t=el-idx*period;
+      if(lastIdx>=0&&idx!==lastIdx)onDrop();lastIdx=idx;
+      const fall=Math.min(.42,period*.5),grow=period-fall;
+      prog.setAttribute('stroke-dasharray',(t/period*100).toFixed(2)+' 100');
+      if(reduce){drop.setAttribute('rx',3.4);drop.setAttribute('ry',3.8);drop.setAttribute('cy',25)}
+      else if(t<grow){const r=3.6*Math.sqrt(t/grow);drop.setAttribute('cy',22+r*.9);drop.setAttribute('rx',r);drop.setAttribute('ry',r*1.12)}
+      else{const p=(t-grow)/fall;drop.setAttribute('cy',25.2+56.8*p*p);drop.setAttribute('rx',3.2);drop.setAttribute('ry',3.2+2.2*p)}
+    }else{prog.setAttribute('stroke-dasharray','0 100');drop.setAttribute('rx',0);drop.setAttribute('ry',0)}
+    const s=(now-splashAt)/1000;
+    if(s<.6&&!reduce){const k=s/.6;ripple.setAttribute('rx',4+14*k);ripple.setAttribute('ry',1+1.6*k);ripple.setAttribute('opacity',1-k);
+      const a=2.2*(1-k)*Math.sin(s*28);surface.setAttribute('d',`M30 82 Q40 ${82-a} 50 82 T70 82 V104 H30 Z`)}
+    else{ripple.setAttribute('rx',0);ripple.setAttribute('ry',0)}
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  let ac=null;
+  function beep(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();
+    const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=1250;g.gain.setValueAtTime(.18,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.06);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.07)}catch(e){}}
+
+  let lock=null;
+  async function keepAwake(){try{if(!lock&&navigator.wakeLock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>lock=null)}}catch(e){}}
+  document.addEventListener('pointerdown',keepAwake,{once:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')keepAwake()});
+
+  // ---- Mesure ----
+  let taps=[],measured=NaN;
+  $('tap').addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    const now=performance.now();
+    if(taps.length&&now-taps[taps.length-1]>12000)taps=[];
+    taps.push(now);if(taps.length>9)taps.shift();
+    measured=taps.length>=3?60000/((taps[taps.length-1]-taps[0])/(taps.length-1)):NaN;
+    vib(12);updateVerdict();
+  });
+  $('tapReset').onclick=()=>{taps=[];measured=NaN;updateVerdict()};
+  function updateVerdict(){
+    const v=$('verdict'),a=$('advice'),target=R.gtt;
+    if(!Number.isFinite(measured)){
+      $('mVal').textContent=taps.length+' / 3';
+      $('mHint').textContent='Touchez ici à chaque goutte qui tombe';
+      v.className='verdict idle';v.textContent='En attente';
+      a.textContent='Cible : '+nf(target)+' gouttes/min';return;
+    }
+    $('mVal').textContent=nf(measured);
+    $('mHint').textContent='gouttes/min mesurées · '+nf(measured*60/S.f)+' ml/h';
+    if(!(target>0)){v.className='verdict idle';v.textContent='Mesuré';a.textContent='';return}
+    const d=(measured-target)/target*100,tol=+S.tol||5;
+    if(Math.abs(d)<=tol){v.className='verdict ok';v.textContent='Bon réglage';a.textContent='Cible : '+nf(target)+' gouttes/min'}
+    else if(d>0){v.className='verdict '+(d>3*tol?'bad':'warn');v.textContent='Trop rapide +'+Math.round(d)+' %';a.textContent='Fermez un peu la molette · cible '+nf(target)}
+    else{v.className='verdict '+(d<-3*tol?'bad':'warn');v.textContent='Trop lent '+Math.round(d)+' %';a.textContent='Ouvrez un peu la molette · cible '+nf(target)}
+  }
+
+  // ---- Écrans et retour ----
+  function open(id){$(id).hidden=false;if(id==='measure'){taps=[];measured=NaN;updateVerdict()}}
+  function closeAll(){let c=false;['measure','prefs'].forEach(id=>{if(!$(id).hidden){$(id).hidden=true;c=true}});return c}
+  window.debitBack=()=>closeAll();
+  document.querySelectorAll('[data-back]').forEach(b=>b.onclick=closeAll);
+  $('openMeasure').onclick=()=>open('measure');
+  $('openPrefs').onclick=()=>open('prefs');
+
+  // ---- Saisie ----
+  const num=(id,key,int)=>$(id).addEventListener('input',()=>{const v=parseFloat($(id).value);S[key]=Number.isFinite(v)?(int?Math.round(v):v):0;compute()});
+  num('bag','bag');num('add','add');num('hrs','h',1);num('mins','m',1);num('rate','rate');
+  $('factor').addEventListener('input',()=>{const v=Math.round(parseFloat($('factor').value));if(v>=1&&v<=100){S.f=v;compute()}});
+  const stepAdd=d=>{S.add=Math.max(0,Math.round(((+S.add||0)+d)*10)/10);compute()};
+  $('addMinus').onclick=()=>stepAdd(-5);$('addPlus').onclick=()=>stepAdd(5);
+  document.querySelectorAll('[data-addq]').forEach(b=>b.onclick=()=>stepAdd(+b.dataset.addq));
+  $('addClear').onclick=()=>{S.add=0;compute()};
+  $('mDur').onclick=()=>{if(S.mode!=='dur'){S.mode='dur';if(R.dur>0){S.h=Math.floor(R.dur/60);S.m=Math.round(R.dur%60)}compute()}};
+  $('mRate').onclick=()=>{if(S.mode!=='rate'){S.mode='rate';if(R.mlh>0)S.rate=Math.round(R.mlh*10)/10;compute()}};
+  $('bigNum').onclick=()=>{S.unit=S.unit==='gtt'?'mlh':'gtt';render();save()};
+  $('tSound').onclick=()=>{S.sound=!S.sound;if(S.sound)beep();render();save()};
+  $('tVib').onclick=()=>{S.vib=!S.vib;if(S.vib)vib(40);render();save()};
+  document.querySelectorAll('[data-tol]').forEach(b=>b.onclick=()=>{S.tol=+b.dataset.tol;render();save()});
+  $('addBag').onclick=()=>{const v=parseFloat($('newBag').value);if(v>0){S.bags=addSorted(S.bags,v);$('newBag').value='';compute()}};
+  $('addDur').onclick=()=>{const v=(parseInt($('newDurH').value)||0)*60+(parseInt($('newDurM').value)||0);if(v>0){S.durs=addSorted(S.durs,v);$('newDurH').value='';$('newDurM').value='';compute()}};
+  $('addFactor').onclick=()=>{const v=Math.round(parseFloat($('newFactor').value));if(v>=1&&v<=100){S.factors=addSorted(S.factors,v);$('newFactor').value='';compute()}};
+  $('resetAll').onclick=()=>{S=Object.assign({},DEF,{bags:[...DEF.bags],durs:[...DEF.durs],factors:[...DEF.factors]});compute()};
+
+  setInterval(render,30000);
+  compute();
+
+  // Version web installable (iPhone / Android) : fonctionne hors ligne.
+  if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.AndroidBridge){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>

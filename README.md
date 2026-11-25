@@ -3,10 +3,13 @@
 Calcul du débit d'une perfusion (gouttes/min ou ml/h) avec une goutte animée au bon rythme
 pour régler la molette. Deux versions :
 
-- `web-prototype.html` : page web, utilisable sur téléphone.
-- App Android, pour la Galaxy Watch et le téléphone : `AndroidManifest.xml`, `res/`, `src/`.
+- App Android (un seul APK) : sur la Galaxy Watch, interface ronde (`src/fr/debitperf/DripView.java`) ;
+  sur le téléphone, interface téléphone (`web/index.html`, embarquée dans l'APK, hors ligne).
+- Version web installable (iPhone et Android) : dossier `web/` (page, manifeste, service worker, icônes).
+  Sur iPhone : ouvrir l'adresse dans Safari → Partager → « Sur l'écran d'accueil ».
 
 ## Formules
+- volume = poche + ajouts
 - ml/h = volume (ml) × 60 / durée (min)
 - gouttes/min = ml/h × gouttes par ml / 60
 - Perfuseur : 20 gouttes/ml (standard), 60 (micro-goutte), 15 (transfusion), 10.
