@@ -12,7 +12,7 @@ rm -rf build && mkdir -p build/res build/classes build/dex build/assets
 cp web/index.html build/assets/index.html
 "$BT/aapt2" compile --dir res -o build/res/
 "$BT/aapt2" link -o build/base.apk -I "$PLAT" --manifest AndroidManifest.xml -A build/assets \
-  --min-sdk-version 30 --target-sdk-version 34 --version-code 3 --version-name 1.2 build/res/*.flat
+  --min-sdk-version 30 --target-sdk-version 34 --version-code 4 --version-name 1.3 build/res/*.flat
 javac -encoding UTF-8 --release 11 -cp "$PLAT" -d build/classes $(find src -name '*.java')
 "$BT/d8" --min-api 30 --lib "$PLAT" --output build/dex $(find build/classes -name '*.class')
 cp build/base.apk build/unsigned.apk

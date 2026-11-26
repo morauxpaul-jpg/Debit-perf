@@ -162,8 +162,12 @@ input[type=number]:focus{outline:2px solid var(--fluid);border-color:transparent
       <label class="field"><span>Minutes</span><input id="mins" type="number" inputmode="numeric" min="0" max="59" step="1"></label>
     </div>
     <div class="chips" data-mode="dur" id="durChips"></div>
+    <div class="seg" data-mode="rate" hidden role="group" aria-label="Unité du débit">
+      <button id="ruMlh" aria-pressed="true">en ml/h</button>
+      <button id="ruGtt" aria-pressed="false">en gouttes/min</button>
+    </div>
     <div class="row" data-mode="rate" hidden>
-      <label class="field"><span>Débit prescrit (ml/h)</span><input id="rate" type="number" inputmode="decimal" min="0" step="any"></label>
+      <label class="field"><span id="rateLbl">Débit (ml/h)</span><input id="rate" type="number" inputmode="decimal" min="0" step="any"></label>
     </div>
   </div>
 
@@ -239,7 +243,7 @@ input[type=number]:focus{outline:2px solid var(--fluid);border-color:transparent
 <script>
 (function(){
   const $=id=>document.getElementById(id);
-  const DEF={bag:500,add:0,mode:'dur',h:4,m:0,rate:125,f:20,unit:'gtt',sound:false,vib:false,tol:5,
+  const DEF={bag:500,add:0,mode:'dur',h:4,m:0,rate:125,rateUnit:'mlh',rateGtt:42,f:20,unit:'gtt',sound:false,vib:false,tol:5,
     bags:[50,100,250,500,1000],durs:[30,60,120,240,480,720,1440],factors:[20,60,15,10]};
   const FNAME={20:'standard',60:'micro',15:'transfusion'};
   let S=Object.assign({},DEF);
@@ -256,7 +260,7 @@ input[type=number]:focus{outline:2px solid var(--fluid);border-color:transparent
     const vol=(+S.bag||0)+(+S.add||0);
     let mlh,dur;
     if(S.mode==='dur'){dur=(+S.h||0)*60+(+S.m||0);mlh=vol>0&&dur>0?vol*60/dur:NaN}
-    else{mlh=+S.rate>0?+S.rate:NaN;dur=vol>0&&mlh>0?vol/mlh*60:NaN}
+    else{mlh=S.rateUnit==='gtt'?(+S.rateGtt>0?S.rateGtt*60/S.f:NaN):(+S.rate>0?+S.rate:NaN);dur=vol>0&&mlh>0?vol/mlh*60:NaN}
     R={vol,mlh,dur,gtt:mlh*S.f/60};
     render();setPeriod(R.gtt);save();
   }
@@ -274,7 +278,10 @@ input[type=number]:focus{outline:2px solid var(--fluid);border-color:transparent
     chips($('durChips'),S.durs,durTxt,v=>(+S.h*60+ +S.m)===v,v=>{S.h=Math.floor(v/60);S.m=v%60;compute()});
     chips($('factorChips'),S.factors,v=>v+(FNAME[v]?'<small>'+FNAME[v]+'</small>':''),v=>+S.f===v,v=>{S.f=v;compute()});
     setVal('bag',S.bag);setVal('add',S.add||0);setVal('hrs',S.h);setVal('mins',S.m);setVal('factor',S.f);
-    setVal('rate',S.mode==='rate'?S.rate:(Number.isFinite(mlh)?Math.round(mlh*10)/10:''));
+    const ruG=S.rateUnit==='gtt';
+    setVal('rate',ruG?S.rateGtt:S.rate);
+    $('rateLbl').textContent=ruG?'Débit (gouttes/min)':'Débit (ml/h)';
+    $('ruMlh').setAttribute('aria-pressed',!ruG);$('ruGtt').setAttribute('aria-pressed',ruG);
     $('total').textContent=vol>0?(S.add>0?S.bag+' + '+S.add+' = ':'')+fmt(vol,1)+' ml':'--';
     $('mDur').setAttribute('aria-pressed',S.mode==='dur');$('mRate').setAttribute('aria-pressed',S.mode==='rate');
     document.querySelectorAll('[data-mode]').forEach(el=>el.hidden=el.dataset.mode!==S.mode);
@@ -384,14 +391,18 @@ input[type=number]:focus{outline:2px solid var(--fluid);border-color:transparent
 
   // ---- Saisie ----
   const num=(id,key,int)=>$(id).addEventListener('input',()=>{const v=parseFloat($(id).value);S[key]=Number.isFinite(v)?(int?Math.round(v):v):0;compute()});
-  num('bag','bag');num('add','add');num('hrs','h',1);num('mins','m',1);num('rate','rate');
+  num('bag','bag');num('add','add');num('hrs','h',1);num('mins','m',1);
+  $('rate').addEventListener('input',()=>{const v=parseFloat($('rate').value);S[S.rateUnit==='gtt'?'rateGtt':'rate']=Number.isFinite(v)?v:0;compute()});
+  const r1=x=>Math.round(x*10)/10;
+  $('ruMlh').onclick=()=>{if(S.rateUnit!=='mlh'){if(R.mlh>0)S.rate=r1(R.mlh);S.rateUnit='mlh';compute()}};
+  $('ruGtt').onclick=()=>{if(S.rateUnit!=='gtt'){if(R.gtt>0)S.rateGtt=r1(R.gtt);S.rateUnit='gtt';compute()}};
   $('factor').addEventListener('input',()=>{const v=Math.round(parseFloat($('factor').value));if(v>=1&&v<=100){S.f=v;compute()}});
   const stepAdd=d=>{S.add=Math.max(0,Math.round(((+S.add||0)+d)*10)/10);compute()};
   $('addMinus').onclick=()=>stepAdd(-5);$('addPlus').onclick=()=>stepAdd(5);
   document.querySelectorAll('[data-addq]').forEach(b=>b.onclick=()=>stepAdd(+b.dataset.addq));
   $('addClear').onclick=()=>{S.add=0;compute()};
   $('mDur').onclick=()=>{if(S.mode!=='dur'){S.mode='dur';if(R.dur>0){S.h=Math.floor(R.dur/60);S.m=Math.round(R.dur%60)}compute()}};
-  $('mRate').onclick=()=>{if(S.mode!=='rate'){S.mode='rate';if(R.mlh>0)S.rate=Math.round(R.mlh*10)/10;compute()}};
+  $('mRate').onclick=()=>{if(S.mode!=='rate'){S.mode='rate';if(R.mlh>0){S.rate=Math.round(R.mlh*10)/10;S.rateGtt=Math.round(R.gtt*10)/10}compute()}};
   $('bigNum').onclick=()=>{S.unit=S.unit==='gtt'?'mlh':'gtt';render();save()};
   $('tSound').onclick=()=>{S.sound=!S.sound;if(S.sound)beep();render();save()};
   $('tVib').onclick=()=>{S.vib=!S.vib;if(S.vib)vib(40);render();save()};
